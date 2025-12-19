@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 
+import torchvision
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
 
@@ -97,8 +98,8 @@ def train_regression_model(xTr, yTr, model, num_epochs, lr=1e-2, momentum=0.9, p
 ndims = nl_xTr.shape[1]
 linear_model = LinearRegressionModel(ndims)  # initialize the model
 linear_model = train_regression_model(nl_xTr, nl_yTr,linear_model, num_epochs=2000, lr=1e-2, momentum=0.9, print_freq=500)
-avg_test_error = mse_loss(linear_model(nl_xTe), nl_yTe)  # compute the average test error
-print('linear regression avg test error', avg_test_error.item())
+avg_test_error_linreg = mse_loss(linear_model(nl_xTe), nl_yTe)  # compute the average test error
+print('linear regression avg test error', avg_test_error_linreg.item())
 
 # Visualize the results
 plt.figure()
@@ -134,8 +135,8 @@ momentum = 0.9
 
 mlp_model = MLPNet(input_dim=1, hidden_dim=hdims, output_dim=1)
 mlp_model = train_regression_model(nl_xTr, nl_yTr, mlp_model, num_epochs=num_epochs, lr=lr, momentum=momentum)
-avg_test_error = mse_loss(mlp_model(nl_xTe), nl_yTe)
-print('Feedforward neural network avg test error', avg_test_error.item())
+avg_test_error_mlp = mse_loss(mlp_model(nl_xTe), nl_yTe)
+print('Feedforward neural network avg test error', avg_test_error_mlp.item())
 
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8,3))
 
@@ -155,10 +156,20 @@ ax2.set_title('Linear Model')
 
 plt.show()
 
+models = ['FNN', 'CNN']
+mse_models = [0.9565, 0.9643]
+
+fig, ax = plt.subplots()
+bar_container = ax.bar(models, mse_models)
+ax.set(ylabel = 'Average Accuracy', title = 'Average Accuracy of MNIST classification')
+ax.bar_label(bar_container)
+plt.show()
 
 
 ###################################################
 """MNIST Classification by Convolutional Neural Network"""
+device = torch.device("mps" if torch.backends.mps.is_available() else "cpu") 
+
 
 # Load the dataset
 trans = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (1.0,))])
@@ -171,7 +182,7 @@ train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=batch_s
 test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=batch_size, shuffle=False)
 
 # Training function
-def train_classification_model(train_loader, model, num_epochs, lr=1e-1, momentum=0.9, print_freq=100):
+def train_classification_model(train_loader, model, num_epochs, lr=1e-1, momentum=0.9, print_freq=1):
     """Train loop for a neural network model.
     
     Input:
@@ -191,6 +202,8 @@ def train_classification_model(train_loader, model, num_epochs, lr=1e-1, momentu
         for batch_idx, (imgs, labels) in enumerate(train_loader):
             # imgs (torch.Tensor):    batch of input images
             # labels (torch.Tensor):  batch labels corresponding to the inputs
+            imgs, labels = imgs.to(device), labels.to(device)
+            #print(next(model.parameters()).device, imgs.device, labels.device)
             optimizer.zero_grad()
             predictions = model(imgs)
             loss = nn.functional.cross_entropy(predictions, labels)
@@ -214,9 +227,9 @@ def test_classification_model(test_loader, model):
         accuracy:         Accuracy of the model on the test set.
     """
     # Compute the model accuracy
-    
-    temp = torch.tensor([])
+    temp = torch.tensor([]).to(device)
     for batch_idx, (imgs, labels) in enumerate(test_loader):
+        imgs, labels = imgs.to(device), labels.to(device)
         predictions = torch.argmax(model(imgs),dim = 1)
         acc = (predictions == labels).float()
         temp = torch.cat((temp,acc))
@@ -233,6 +246,7 @@ momentum = 0.9
 
 mlp_model = MLPNet(input_dim=(28*28), hidden_dim=hidden_dim, output_dim=10)
 print('the number of parameters', sum(parameter.view(-1).size()[0] for parameter in mlp_model.parameters()))
+mlp_model = mlp_model.to(device)
 mlp_model = train_classification_model(train_loader, mlp_model, num_epochs=num_epochs, lr=lr, momentum=momentum)
 avg_test_acc = test_classification_model(test_loader, mlp_model)
 print('avg test accuracy', avg_test_acc)
@@ -248,12 +262,10 @@ class ConvNet(nn.Module):
         
         self.fc = nn.Linear(49*hidden_channels,output_dim)
         
-        
     def forward(self, x):
         # Implement the forward pass, with ReLU non-linearities and max-pooling
         fst = nn.functional.max_pool2d(nn.functional.relu(self.conv1(x)), kernel_size = 2, stride = 2)
         snd = nn.functional.max_pool2d(nn.functional.relu(self.conv2(fst)), kernel_size = 2, stride = 2)
-        
         return self.fc(snd.view(-1,self.fc.in_features))
 
 # Train a convnet model on MNIST
@@ -264,6 +276,38 @@ momentum = 0.9
 
 conv_model = ConvNet(input_channels=1, hidden_channels=hidden_channels, output_dim=10)
 print('the number of parameters:', sum(parameter.view(-1).size()[0] for parameter in conv_model.parameters()))
+conv_model = conv_model.to(device)
 conv_model = train_classification_model(train_loader, conv_model, num_epochs=num_epochs, lr=lr, momentum=momentum, print_freq=1)
 avg_test_acc = test_classification_model(test_loader, conv_model)
 print('avg test accuracy', avg_test_acc)
+
+
+##################################################
+"""Demo of CNN and FNN classification"""
+def imshow(img):
+    img = img.detach().cpu()
+    img = img + 0.5     # unnormalize
+    plt.figure()
+    plt.imshow(np.transpose(img.numpy(), (1, 2, 0)))
+    plt.show()
+
+dataiter = iter(test_loader)
+images, labels = next(dataiter)
+images, labels = images.to(device), labels.to(device)
+
+# Make a forward pass to get predictions of the MLP model
+mlp_scores = mlp_model(images)
+_, mlp_preds = torch.max(mlp_scores.data, 1)
+
+# Make a forward pass to get predictions of the ConvNet model
+conv_scores = conv_model(images)
+_, conv_preds = torch.max(conv_scores.data, 1)
+
+show_img_idx = np.random.randint(images.shape[0], size=7)
+# show images
+imshow(torchvision.utils.make_grid(images[show_img_idx]))
+# print labels
+print('labels are:', ' '.join('%d' % labels[j] for j in show_img_idx))
+# print predictions
+print('MLP predictions are:', ' '.join('%d' % mlp_preds[j] for j in show_img_idx))
+print('CNN predictions are:', ' '.join('%d' % conv_preds[j] for j in show_img_idx))
