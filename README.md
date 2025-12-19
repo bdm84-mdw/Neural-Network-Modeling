@@ -2,6 +2,8 @@
 This code explores the capabilities of neural network on regression and classification tasks.
 For regression, points (x,y) were sampled from the sine curve, and noise, sampled from Unif(0, 0.2), was added to y. The code implements a 2-layer Feedforward Neural Network (FNN) and a linear regression model. Both models were evaluated with mean squared error on a held-out test set. The FNN with hidden dimension = 90, number of epochs = 5000, learn rate = 0.1, and momentum = 0.9 achieved a mean squared error of 0.00214 outperforming the linear model whose mean squared error was 0.0909. The following are the comparisons of regression by FNN and linear model on the sinusoidal data and their mean-squared errors.
 
+(Change the image from MLP to FNN)
+
 ![FNN vs. Linear Regression](Images/mlp_vs_linear.png)
 ![FNN vs. Linear Regression on MSE](Images/mse_plot.png)
 

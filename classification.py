@@ -84,25 +84,19 @@ def test_classification_model(test_loader, model):
     #batches shouldn't be equally weighted!
     return accuracy
 
-# Train and evaluate an MLP model on MNIST
-def eval_FNN(hidden_dim, num_epochs, lr, momentum):
-    mlp_model = learners.MLPNet(input_dim=(28*28), hidden_dim=hidden_dim, output_dim=10)
-    print('the number of parameters', sum(parameter.view(-1).size()[0] for parameter in mlp_model.parameters()))
-    mlp_model = mlp_model.to(device)
-    mlp_model = train_classification_model(train_loader, mlp_model, num_epochs=num_epochs, lr=lr, momentum=momentum)
-    avg_test_acc = test_classification_model(test_loader, mlp_model)
-    print('avg test accuracy', avg_test_acc)
-    return mlp_model, avg_test_acc
 
-# Train and evaluate a convnet model on MNIST
-def eval_CNN(hidden_channels, num_epochs, lr, momentum):
-    conv_model = learners.ConvNet(input_channels=1, hidden_channels=hidden_channels, output_dim=10)
-    print('the number of parameters:', sum(parameter.view(-1).size()[0] for parameter in conv_model.parameters()))
-    conv_model = conv_model.to(device)
-    conv_model = train_classification_model(train_loader, conv_model, num_epochs=num_epochs, lr=lr, momentum=momentum, print_freq=1)
-    avg_test_acc = test_classification_model(test_loader, conv_model)
-    print('avg test accuracy', avg_test_acc)
-    return conv_model, avg_test_acc
+def eval_NN(hidden_param, num_epochs, lr, momentum, is_cnn):
+    if is_cnn:
+        model = learners.ConvNet(input_channels=1, hidden_channels=hidden_param, output_dim=10)
+    else:
+        model = learners.MLPNet(input_dim=(28*28), hidden_dim=hidden_param, output_dim=10)
+    print('the number of parameters', sum(parameter.view(-1).size()[0] for parameter in model.parameters()))
+    model = model.to(device)
+    model = train_classification_model(train_loader, model, num_epochs=num_epochs, lr=lr, momentum=momentum)
+    test_acc = test_classification_model(test_loader, model)
+    acc_float = test_acc.detach().cpu().item()
+    print('avg test accuracy', round(acc_float,4))
+    return model, acc_float
 
 ##################################################
 """Demo of CNN and FNN classification"""
@@ -147,22 +141,30 @@ def display_result(x, y, title, xlabel, ylabel):
     plt.xticks(x)
     plt.show()
 
-def parameter_variation_cnn(start, end, step, is_cnn):
-    channel_count = list(range(start,end,step))
+def parameter_variation_nn(start, end, step, is_cnn):
+    parameter_count = list(range(start,end,step))
     result = []
-    for h_channels in channel_count:
-        print("parameter: ", h_channels)
-        _, test_acc = eval_CNN(hidden_channels=h_channels, num_epochs=40, lr=1e-3, momentum=0.9)
-        x = test_acc.detach().cpu().item()
-        result.append(x)
-    print(result)
-    title = "Accuracy of CNN vs. # of hidden channels"
-    xlabel = "# of hidden channels"
-    ylabel = "Accuracy"
-    display_result(channel_count, result, title, xlabel, ylabel)
+    for h_dim in parameter_count:
+        if is_cnn:
+            print("hidden channel: ", h_dim)
+            _, test_acc = eval_NN(hidden_param=h_dim, num_epochs=1, lr=1e-3, momentum=0.9, is_cnn=True)
+        else:
+            _, test_acc = eval_NN(hidden_param=h_dim, num_epochs=1, lr=1e-2, momentum=0.9, is_cnn=False)
+        result.append(test_acc)
+    return parameter_count, result
 
 
-# fnn_model, _ = eval_FNN(hidden_dim = 50, num_epochs = 40, lr = 1e-2, momentum = 0.9)
-# cnn_model, _ = eval_CNN(hidden_channels=20, num_epochs=40, lr=1e-3, momentum=0.9)
+
+# fnn_model, _ = eval_NN(hidden_param = 50, num_epochs = 20, lr = 1e-2, momentum = 0.9, is_cnn=False)
+# cnn_model, _ = eval_NN(hidden_param=20, num_epochs=20, lr=1e-3, momentum=0.9, is_cnn = True)
 # cnn_fnn_demo(fnn = fnn_model, cnn = cnn_model)
-parameter_variation_cnn(2,22,2)
+parameter_count, result = parameter_variation_nn(2,8,2, True)
+display_result(parameter_count, result, 
+               title = "Accuracy of CNN vs. # of Hidden channels\nEpoch: 40, Learn rate = 0.001, Momentum = 0.9", 
+               xlabel="Hidden channels", 
+               ylabel = "Accuracy")
+parameter_count, result = parameter_variation_nn(5,20,5, False)
+display_result(parameter_count, result, 
+               title = "Accuracy of FNN vs. # of Hidden dimension\nEpoch: 40, Learn rate = 0.01, Momentum = 0.9", 
+               xlabel="Hidden dimension", 
+               ylabel = "Accuracy")
