@@ -147,23 +147,23 @@ def parameter_variation_nn(start, end, step, is_cnn):
     for h_dim in parameter_count:
         if is_cnn:
             print("hidden channel: ", h_dim)
-            _, test_acc = eval_NN(hidden_param=h_dim, num_epochs=1, lr=1e-3, momentum=0.9, is_cnn=True)
+            _, test_acc = eval_NN(hidden_param=h_dim, num_epochs=40, lr=1e-3, momentum=0.9, is_cnn=True)
         else:
-            _, test_acc = eval_NN(hidden_param=h_dim, num_epochs=1, lr=1e-2, momentum=0.9, is_cnn=False)
+            _, test_acc = eval_NN(hidden_param=h_dim, num_epochs=40, lr=1e-2, momentum=0.9, is_cnn=False)
         result.append(test_acc)
     return parameter_count, result
-
-
 
 # fnn_model, _ = eval_NN(hidden_param = 50, num_epochs = 20, lr = 1e-2, momentum = 0.9, is_cnn=False)
 # cnn_model, _ = eval_NN(hidden_param=20, num_epochs=20, lr=1e-3, momentum=0.9, is_cnn = True)
 # cnn_fnn_demo(fnn = fnn_model, cnn = cnn_model)
-parameter_count, result = parameter_variation_nn(2,8,2, True)
+parameter_count, result = parameter_variation_nn(2,22,2, True)
+print("result: ", result)
 display_result(parameter_count, result, 
                title = "Accuracy of CNN vs. # of Hidden channels\nEpoch: 40, Learn rate = 0.001, Momentum = 0.9", 
                xlabel="Hidden channels", 
                ylabel = "Accuracy")
-parameter_count, result = parameter_variation_nn(5,20,5, False)
+parameter_count, result = parameter_variation_nn(5,55,5, False)
+print("result: ", result)
 display_result(parameter_count, result, 
                title = "Accuracy of FNN vs. # of Hidden dimension\nEpoch: 40, Learn rate = 0.01, Momentum = 0.9", 
                xlabel="Hidden dimension", 

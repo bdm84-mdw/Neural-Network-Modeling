@@ -2,12 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import torch
-import torch.nn as nn
-import torch.optim as optim
-
+import scipy.stats as sts
 import learners
 
-def gen_nonlinear_data(num_samples=10000):
+def gen_nonlinear_data(num_samples=100000):
     # generate random x samples for training and test sets
     xTr = torch.rand(num_samples, 1) * 2 * np.pi
     xTe = torch.rand(int(num_samples * 0.1), 1) * 2 * np.pi
@@ -85,7 +83,7 @@ def reg_comparison():
     ax1.scatter(nl_xTe, nl_yTe, label="Test Points")
     ax1.scatter(nl_xTr, mlp_model(nl_xTr).detach(), color="red", marker='o', label="Prediction")
     ax1.legend()
-    ax1.set_title('MLP Net')
+    ax1.set_title('FNN')
 
     # Plot the visualizations from our MLP Model
     ax2.scatter(nl_xTr, nl_yTr, label="Train Points")
@@ -96,9 +94,22 @@ def reg_comparison():
 
     plt.show()
 
+def sq_error(y_pred,y_true):
+    return torch.pow((y_pred-y_true),2)
+
+def t_test(linear_model, mlp_model):
+    sq_err_lin = sq_error(linear_model(nl_xTe), nl_yTe).detach().numpy()
+    sq_err_fnn = sq_error(mlp_model(nl_xTe), nl_yTe).detach().numpy()
+    std_lin = np.std(sq_err_lin)
+    std_fnn = np.std(sq_err_fnn)
+    return sts.ttest_ind(sq_err_lin/std_lin, sq_err_fnn/std_fnn)
+
 nl_xTr, nl_xTe, nl_yTr, nl_yTe = gen_nonlinear_data(num_samples=500)
 linear_model, _ = reg_lin_eval()
 mlp_model, _ = reg_fnn_eval(hdims = 90, num_epochs=5000, lr=1e-1, momentum = 0.9)
+# result = t_test(linear_model, mlp_model)
+# print(result)
 reg_comparison()
+
 
 
